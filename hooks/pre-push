@@ -1,0 +1,129 @@
+#!/bin/sh
+
+# Called by "git push" after it has checked the remote status, but before anything has been
+# pushed. If this script exits with a non-zero status nothing will be pushed.
+#
+# Before usage git hook path needs to be set accordingly:
+#	git config core.hooksPath hooks (folderName containing this script)
+#
+# This hook is called with the following parameters:
+# 	$1 -- Name of the remote to which the push is being done
+# 	$2 -- URL to which the push is being done
+#
+# If pushing without using a named remote those arguments will be equal.
+#
+# Information about the commits which are being pushed is supplied as lines to
+# the standard input in the form:
+#
+#   <local ref> <local sha1> <remote ref> <remote sha1>
+#
+# You can use `git push --no-verify` to bypass this pre-push hook
+
+REMOTE="$1"
+URL="$2"
+read LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA
+
+NEW_BRANCH_SHA="0000000000000000000000000000000000000000"
+
+# tput definitions for printing colored outputs to stdout
+BLACK=$(tput setaf 0)
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+BLUE=$(tput setaf 4)
+MAGENTA=$(tput setaf 5)
+CYAN=$(tput setaf 6)
+WHITE=$(tput setaf 7)
+RESET=$(tput sgr0)
+
+function echo_colored() {
+  # Echo colored if output goes to terminal
+  if [ -t 1 ]; then
+    echo "$1==> $2${RESET}"
+  else
+    echo "==> $2"
+  fi
+}
+
+function check_basename() {
+  echo_colored ${CYAN} "TASK-$1: Checking Basename..."
+  if [ $(basename "$PWD") != "git-hooks-template" ]; then
+    echo_colored ${RED} "Base directory is not 'git-hooks-template', failed to run pre-push hook ❌ aborting push!"
+    exit 1
+  fi
+  echo_colored ${GREEN} "Correct Basename 'git-hooks-template' ✔, setting working directory as 'go' folder..."
+  cd ./go
+}
+
+function check_upstream() {
+  echo_colored ${CYAN} "TASK-$1: Checking Upstream branch to see if your branch is behind..."
+  echo_colored ${BLUE} "Executing git fetch"
+  git fetch
+  if [ $REMOTE_SHA != $NEW_BRANCH_SHA ] && (git status -sb | grep -q 'behind'); then
+    echo_colored ${YELLOW} "Your local branch is BEHIND of upstream ❗❕, first PULL the updates then push again."
+    exit 1
+  fi
+  echo_colored ${GREEN} "Your branch is ahead of upstream, i.e. your push is good to go! 👍"
+}
+
+function run_all_tasks() {
+  echo_colored ${BLUE} "Starting execution of tasks in the queue... 🏳🏳🏳"
+  i=0
+  TASKS=$1
+  for TASK in "${TASKS[@]}"; do
+    ((i++))
+    $TASK $i
+  done
+  echo_colored ${GREEN} "Successfully executed all tasks in the queue! Now pushing... 🏁🏁🏁"
+}
+
+function get_tasks() {
+  echo_colored ${BLUE} "Figuring out which tasks to execute..."
+  echo_colored ${CYAN} "Adding COMMON Tasks to the queue..."
+  TASKS=(check_basename check_upstream)
+
+  BACKEND_TASKS=() # run_tests
+  FRONTEND_TASKS=() # run_cypress_tests
+
+  if [ $REMOTE_SHA == $NEW_BRANCH_SHA ]; then
+    echo_colored ${CYAN} "New Branch... Adding both backend and frontend tasks to the queue..."
+    for BET in "${BACKEND_TASKS[@]}"; do
+      TASKS+=($BET)
+    done
+    for FET in "${FRONTEND_TASKS[@]}"; do
+      TASKS+=($FET)
+    done
+  else
+    if (git diff --stat $(git rev-parse --abbrev-ref --symbolic-full-name @{u}) | grep -q ".go"); then
+      echo_colored ${CYAN} "Adding BACKEND Tasks to the queue..."
+      for BET in "${BACKEND_TASKS[@]}"; do
+        TASKS+=($BET)
+      done
+    fi
+
+    if (git diff --stat $(git rev-parse --abbrev-ref --symbolic-full-name @{u}) | grep -q ".ts\|.tsx\|.js\|.jsx\|.css\|.html\|.lock"); then
+      echo_colored ${CYAN} "Adding FRONTEND Tasks to the queue..."
+      for FET in "${FRONTEND_TASKS[@]}"; do
+        TASKS+=($FET)
+      done
+    fi
+  fi
+
+  run_all_tasks $TASKS
+}
+
+function main() {
+  echo_colored ${BLUE} "Starting Custom pre-push hook..."
+  ## Run pre-push tasks only if a new push is on the way ##
+  if [ -z "$REMOTE_SHA" ] && [ -z "$LOCAL_SHA"]; then
+    echo_colored ${CYAN} "No new push is on the way, skipping pre-push tasks..."
+  elif [ $LOCAL_SHA == $NEW_BRANCH_SHA ]; then
+    echo_colored ${CYAN} "Remote Branch Deletion, skipping pre-push tasks..."
+  elif [ ! -z "$REMOTE_SHA" -a "$REMOTE_SHA" != " " ] && [ ! -z "$LOCAL_SHA" -a "$LOCAL_SHA" != " " ]; then
+    get_tasks
+  else
+    echo_colored ${RED} "Unknown pre-push hook usage ❌ please consult to the author of the hook with your use case..."
+  fi
+}
+
+main

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# tput definitions for printing colored outputs to stdout
+BLACK=$(tput setaf 0)
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+BLUE=$(tput setaf 4)
+MAGENTA=$(tput setaf 5)
+CYAN=$(tput setaf 6)
+WHITE=$(tput setaf 7)
+RESET=$(tput sgr0)
+
+function echo_colored() {
+    # Echo colored if output goes to terminal
+	if [ -t 1 ]; then
+		echo "$1==> $2${RESET}"
+	else
+		echo "==> $2"
+	fi
+}
+
+for file in $(git diff --cached --name-only --diff-filter=ACMRTUXB)
+do
+	echo_colored ${CYAN} "(git add) $file"
+  git add "$file"
+done
