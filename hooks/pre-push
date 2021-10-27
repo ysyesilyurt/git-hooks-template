@@ -51,8 +51,7 @@ function check_basename() {
     echo_colored ${RED} "Base directory is not 'git-hooks-template', failed to run pre-push hook ❌ aborting push!"
     exit 1
   fi
-  echo_colored ${GREEN} "Correct Basename 'git-hooks-template' ✔, setting working directory as 'go' folder..."
-  cd ./go
+  echo_colored ${GREEN} "Correct Basename 'git-hooks-template' ✔, continuing..."
 }
 
 function check_upstream() {

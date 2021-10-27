@@ -22,7 +22,7 @@ function echo_colored() {
 
 for file in $(git diff --cached --name-only --diff-filter=ACMRTUXB | grep "\.go")
 do
-	echo_colored ${CYAN} "(gofmt) $file"
-	gofmt -w "$file"
-    git add "$file"
+  echo_colored ${CYAN} "(gofmt) $file"
+  gofmt -w "$file"
+	git add "$file"
 done

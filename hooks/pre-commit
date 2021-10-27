@@ -22,6 +22,6 @@ function echo_colored() {
 
 for file in $(git diff --cached --name-only --diff-filter=ACMRTUXB)
 do
-	echo_colored ${CYAN} "(git add) $file"
+  echo_colored ${CYAN} "(git add) $file"
   git add "$file"
 done
